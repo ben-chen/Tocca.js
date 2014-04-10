@@ -1,6 +1,6 @@
 /**
 *
-* Version: 0.0.8
+* Version: 0.0.9-beta
 * Author: Gianluca Guarini
 * Contact: gianluca.guarini@gmail.com
 * Website: http://www.gianlucaguarini.com/
@@ -47,12 +47,13 @@
 		getPointerEvent = function(event) {
 			return event.targetTouches ? event.targetTouches[0] : event;
 		},
+
 		sendEvent = function(elm, eventName, originalEvent, data) {
 			var customEvent = doc.createEvent('Event');
 
 			data = data || {};
-			data.x = currX;
-			data.y = currY;
+			data.x = currX - elmOffset.left;
+			data.y = currY - elmOffset.top;
 			data.distance = data.distance;
 			if (useJquery)
 				jQuery(elm).trigger(eventName, data);
@@ -64,6 +65,7 @@
 				customEvent.initEvent(eventName, true, true);
 				elm.dispatchEvent(customEvent);
 			}
+			touchTarget = null;
 		};
 
 	var touchStarted = false, // detect if a touch event is sarted
@@ -71,6 +73,8 @@
 		taptreshold = win.TAP_TRESHOLD || 200,
 		precision =  win.TAP_PRECISION / 2 || 60 / 2, // touch events boundaries ( 60px by default )
 		tapNum = 0,
+    touchTarget,
+    elmOffset,
 		currX, currY, cachedX, cachedY, tapTimer;
 
 	// shall we use it just on the touch devices?
@@ -79,11 +83,16 @@
 
 	//setting the events listeners
 	setListener(doc, isTouch ? 'touchstart' : 'mousedown', function(e) {
+    // cache the target element
+    touchTarget = e.target;
 		var pointer = getPointerEvent(e);
+    elmOffset = touchTarget.getBoundingClientRect();
+
 		// caching the current x
-		cachedX = currX = pointer.pageX;
+		cachedX = currX = pointer.pageX + elmOffset.left;
 		// caching the current y
-		cachedY = currY = pointer.pageY;
+		cachedY = currY = pointer.pageY + elmOffset.top;
+
 		// a touch event is detected
 		touchStarted = true;
 		tapNum ++;
@@ -98,7 +107,7 @@
 				!touchStarted
 			) {
 				// Here you get the Tap event
-				sendEvent(e.target, (tapNum === 2) ? 'dbltap' : 'tap', e);
+				sendEvent(touchTarget, (tapNum === 2) ? 'dbltap' : 'tap', e);
 			}
 			tapNum = 0;
 		}, taptreshold);
@@ -108,6 +117,7 @@
 		var eventsArr = [],
 			deltaY = cachedY - currY,
 			deltaX = cachedX - currX;
+
 		touchStarted = false;
 		if (deltaX <= -swipeTreshold)
 			eventsArr.push('swiperight');
@@ -123,7 +133,7 @@
 		if (eventsArr.length) {
 			for (var i = 0; i < eventsArr.length; i++) {
 				var eventName = eventsArr[i];
-				sendEvent(e.target, eventName, e,{
+				sendEvent(touchTarget, eventName, e,{
 					distance:{
 						x:Math.abs(deltaX),
 						y:Math.abs(deltaY)
@@ -131,10 +141,13 @@
 				});
 			}
 		}
+
 	});
 	setListener(doc, isTouch ? 'touchmove' : 'mousemove', function(e) {
+		if(!touchTarget) return;
 		var pointer = getPointerEvent(e);
-		currX = pointer.pageX;
-		currY = pointer.pageY;
+    elmOffset = touchTarget.getBoundingClientRect();
+		currX = pointer.pageX + elmOffset.left;
+		currY = pointer.pageY + elmOffset.top;
 	});
 }(document, window));
